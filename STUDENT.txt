@@ -1,0 +1,8 @@
+url:
+
+ https://khallifah0006.github.io/narsis-main/
+
+ jika favicon dan icon lainnya belum terganti silahkan di empty cache  dan hard reload
+ 
+
+

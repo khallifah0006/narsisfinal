@@ -1,0 +1,254 @@
+
+// kalau service workernya tiba tiba hilang di dist pakai ini 
+
+/*
+
+importScripts('https://storage.googleapis.com/workbox-cdn/releases/6.4.1/workbox-sw.js');
+
+self.addEventListener('install', (event) => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  return self.clients.claim();
+});
+
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+
+  const notificationData = event.data.json();
+  
+  const notificationOptions = {
+    body: notificationData.options.body,
+    icon: '/icon.png',
+    badge: '/badge.png',
+    vibrate: [100, 50, 100],
+    data: {
+      dateOfArrival: Date.now(),
+      primaryKey: 1
+    },
+    actions: [
+      {
+        action: 'view',
+        title: 'View Story'
+      }
+    ]
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(notificationData.title, notificationOptions)
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  if (event.action === 'view') {
+    event.waitUntil(
+      clients.openWindow('/#/')
+    );
+  } else {
+    event.waitUntil(
+      clients.openWindow('/#/')
+    );
+  }
+});
+
+// Cache static resources
+workbox.precaching.precacheAndRoute([
+  { url: 'index.html', revision: '1' },
+  { url: 'styles.css', revision: '1' },
+  { url: 'index.js', revision: '1' },
+  { url: 'db.js', revision: '1' },
+  { url: 'manifest.json', revision: '1' },
+  { url: 'icon.png', revision: '1' },
+  { url: 'badge.png', revision: '1' },
+  { url: 'favicon1.ico', revision: '1' },
+  { url: 'icon192x192.png', revision: '1' },
+  { url: 'icon512x512.png', revision: '1' }
+]);
+
+// Improved image caching strategy that captures all story images
+workbox.routing.registerRoute(
+  // Comprehensive regex pattern to catch all image types from any source
+  new RegExp('\.(?:png|jpg|jpeg|svg|gif|webp)$|(?:photo|images|image|img)'),
+  new workbox.strategies.StaleWhileRevalidate({
+    cacheName: 'images-cache',
+    plugins: [
+      new workbox.expiration.ExpirationPlugin({
+        maxEntries: 200, // Increased cache capacity
+        maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+      }),
+      new workbox.cacheableResponse.CacheableResponsePlugin({
+        statuses: [0, 200] // Include opaque responses from cross-origin requests
+      })
+    ],
+  })
+);
+
+// Story API specific image caching with higher priority
+workbox.routing.registerRoute(
+  ({ url }) => url.origin.includes('story-api.dicoding.dev') && 
+               (url.pathname.includes('/images/') || 
+                url.href.includes('photoUrl') || 
+                url.pathname.includes('/photo/')),
+  new workbox.strategies.StaleWhileRevalidate({
+    cacheName: 'story-api-images',
+    plugins: [
+      new workbox.expiration.ExpirationPlugin({
+        maxEntries: 150,
+        maxAgeSeconds: 14 * 24 * 60 * 60, // 14 days
+      }),
+      new workbox.cacheableResponse.CacheableResponsePlugin({
+        statuses: [0, 200]
+      })
+    ],
+  })
+);
+
+// Cache static assets
+workbox.routing.registerRoute(
+  ({ request }) => request.destination === 'script' || request.destination === 'style' || request.destination === 'document',
+  new workbox.strategies.StaleWhileRevalidate({
+    cacheName: 'static-assets-cache',
+  })
+);
+
+// Handle API requests with a network-first approach but fall back to cache
+workbox.routing.registerRoute(
+  new RegExp('https://story-api.dicoding.dev/v1/stories'),
+  new workbox.strategies.NetworkFirst({
+    cacheName: 'stories-cache',
+    plugins: [
+      new workbox.cacheableResponse.CacheableResponsePlugin({ statuses: [0, 200] }),
+      new workbox.expiration.ExpirationPlugin({
+        maxAgeSeconds: 7 * 24 * 60 * 60, // 7 days
+      })
+    ]
+  })
+);
+
+// Handle fetch events for stories API
+self.addEventListener('fetch', (event) => {
+  // Check if the request is for a story API endpoint (but not the add endpoint)
+  if (event.request.url.includes('/v1/stories') && !event.request.url.includes('/add')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          // Clone the response to store in cache
+          const clonedResponse = response.clone();
+          
+          // Store full response including images in cache for offline use
+          caches.open('stories-detail-cache').then((cache) => {
+            cache.put(event.request, clonedResponse);
+          });
+          
+          // Return the original response
+          return response;
+        })
+        .catch(async () => {
+          // Try to get from cache first
+          const cachedResponse = await caches.match(event.request);
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+          
+          // If not in cache, try to get from IndexedDB
+          const clients = await self.clients.matchAll();
+          
+          if (clients.length > 0) {
+            // Ask the client to get data from IndexedDB
+            clients[0].postMessage({
+              type: 'GET_STORIES_FROM_INDEXEDDB'
+            });
+            
+            // Wait for the response from the client
+            return new Promise((resolve) => {
+              self.addEventListener('message', function handler(event) {
+                if (event.data.type === 'INDEXEDDB_STORIES') {
+                  self.removeEventListener('message', handler);
+                  resolve(new Response(JSON.stringify({ listStory: event.data.stories }), {
+                    headers: { 'Content-Type': 'application/json' }
+                  }));
+                }
+              });
+              
+              // Timeout after 3 seconds if no response
+              setTimeout(() => {
+                resolve(new Response(JSON.stringify({ 
+                  error: true, 
+                  message: 'Failed to fetch stories while offline'
+                }), {
+                  status: 503,
+                  headers: { 'Content-Type': 'application/json' }
+                }));
+              }, 3000);
+            });
+          }
+          
+          // If no clients are available, return a meaningful error
+          return new Response(JSON.stringify({ 
+            error: true, 
+            message: 'You are offline. No cached data available.'
+          }), {
+            status: 503,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        })
+    );
+  }
+  
+  // Special handling for image requests
+  else if (event.request.destination === 'image' || 
+          event.request.url.includes('.jpg') || 
+          event.request.url.includes('.png') || 
+          event.request.url.includes('photo') || 
+          event.request.url.includes('images')) {
+    
+    event.respondWith(
+      caches.match(event.request)
+        .then((cachedResponse) => {
+          // Return cached response if available
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+          
+          // Otherwise try to fetch it
+          return fetch(event.request)
+            .then((response) => {
+              if (!response || response.status !== 200 || response.type !== 'basic') {
+                return response;
+              }
+              
+              // Clone the response
+              const responseToCache = response.clone();
+              
+              // Add it to cache
+              caches.open('images-cache')
+                .then((cache) => {
+                  cache.put(event.request, responseToCache);
+                });
+                
+              return response;
+            })
+            .catch(() => {
+              // If image can't be fetched and not in cache, return fallback image
+              return new Response('Image unavailable offline', { 
+                status: 503, 
+                statusText: 'Service Unavailable' 
+              });
+            });
+        })
+    );
+  }
+});
+
+// Listen for messages from client
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'STORIES_FROM_INDEXEDDB') {
+    // Store the received stories for later use
+    self.indexedDBStories = event.data.stories;
+  }
+});
+
+*/

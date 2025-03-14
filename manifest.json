@@ -1,0 +1,47 @@
+{
+    "name": "Narsis",
+    "short_name": "Narsis",
+    "description": "narsis - Share your stories with the world",
+    "start_url": "index.html",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#5D8BF4",
+    "icons": [
+      {
+        "src": "icon192x192.png",
+        "sizes": "192x192",
+        "type": "image/png"
+      },
+      {
+        "src": "icon512x512.png",
+        "sizes": "512x512",
+        "type": "image/png"
+      }
+    ],
+    "screenshots": [
+      {
+        "src": "desktop.png",
+        "sizes": "1280x720",
+        "type": "image/png",
+            "form_factor": "wide"
+      },
+      {
+        "src": "mobile.png",
+        "sizes": "720x1280",
+        "type": "image/png",
+         "form_factor": "narrow"
+        
+      }
+    ],
+    "shortcuts": [
+      {
+        "name": "Add Story",
+        "short_name": "Add",
+        "description": "Quickly add a new story",
+        "url": "#/add-story",
+        "icons": [{ "src": "add-icon.png", "sizes": "96x96", "type": "image/png" }]
+      }
+    ]
+    
+  }
+  
