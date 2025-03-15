@@ -221,16 +221,7 @@ const StoryModel = {
   
 };
 
-async function fetchAndCacheStories() {
-  try {
-    const stories = await StoryModel.getAllStories(1, 20, 1);
-    await StoryDB.clearStories();
-    stories.forEach(story => StoryDB.saveStory(story));
-  } catch (error) {
-    console.log("Offline mode: Loading stories from IndexedDB");
-    return await StoryDB.getStories();
-  }
-}
+
 const StoryPresenter = {
   init() {
     this.initRouter();
