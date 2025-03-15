@@ -56,8 +56,9 @@ workbox.precaching.precacheAndRoute([
   { url: 'index.js', revision: '1' },
   { url: 'db.js', revision: '1' },
   { url: 'manifest.json', revision: '1' },
-  { url: 'icon.png', revision: '1' },
-  { url: 'badge.png', revision: '1' },
+  { url: 'mobile.png', revision: '1' },
+  { url: 'desktop.png', revision: '1' },
+  { url: 'add-icon.png', revision: '1' },
   { url: 'favicon1.ico', revision: '1' },
   { url: 'icon192x192.png', revision: '1' },
   { url: 'icon512x512.png', revision: '1' }
